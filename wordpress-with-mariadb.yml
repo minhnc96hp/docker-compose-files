@@ -1,0 +1,59 @@
+services:
+  wordpress:
+    image: 'wordpress:latest'
+    volumes:
+      - 'wordpress-files:/var/www/html'
+    environment:
+      - SERVICE_FQDN_WORDPRESS
+      - WORDPRESS_DB_HOST=mariadb
+      - WORDPRESS_DB_USER=$SERVICE_USER_WORDPRESS
+      - WORDPRESS_DB_PASSWORD=$SERVICE_PASSWORD_WORDPRESS
+      - WORDPRESS_DB_NAME=wordpress
+    depends_on:
+      - mariadb
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - '-f'
+        - 'http://127.0.0.1'
+      interval: 2s
+      timeout: 10s
+      retries: 10
+    command: >
+      bash -c "
+        echo 'upload_max_filesize=512M' > /usr/local/etc/php/conf.d/uploads.ini &&
+        echo 'post_max_size=512M' >> /usr/local/etc/php/conf.d/uploads.ini &&
+        echo 'max_execution_time=300' >> /usr/local/etc/php/conf.d/uploads.ini &&
+        echo 'max_input_time=300' >> /usr/local/etc/php/conf.d/uploads.ini &&
+        echo 'memory_limit=512M' >> /usr/local/etc/php/conf.d/uploads.ini &&
+        docker-entrypoint.sh apache2-foreground
+      "
+    networks:
+      - coolify
+    ports:
+      - '8081:80'
+  mariadb:
+    image: 'mariadb:11'
+    volumes:
+      - 'mariadb-data:/var/lib/mysql'
+    environment:
+      - MYSQL_ROOT_PASSWORD=$SERVICE_PASSWORD_ROOT
+      - MYSQL_DATABASE=wordpress
+      - MYSQL_USER=$SERVICE_USER_WORDPRESS
+      - MYSQL_PASSWORD=$SERVICE_PASSWORD_WORDPRESS
+    healthcheck:
+      test:
+        - CMD
+        - healthcheck.sh
+        - '--connect'
+        - '--innodb_initialized'
+      interval: 5s
+      timeout: 20s
+      retries: 10
+    networks:
+      - coolify
+
+networks:
+  coolify:
+    external: true
